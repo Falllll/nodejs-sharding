@@ -1,8 +1,8 @@
 const app = require('express')();
 const {Client} = require('pg');
 const crypto = require('crypto');
-const ConsistentHash = require('consistent-hash');
-const hr = new ConsistentHash();
+const HashRing = require('hashring');
+const hr = new HashRing();
 hr.add(['5432', '5433', '5434']);
 
 const clients = {
@@ -41,8 +41,22 @@ async function connect() {
 connect();
 
 
-app.get('/', (req, res) => {
+app.get('/:urlId', async(req, res) => {
+    //https://www.wikipedia.com/yh3j4
 
+    const urlId = req.params.urlId;
+    const server = hr.get(urlId);
+    const result = await clients[server].query('SELECT * FROM urls WHERE url_id = $1', [urlId]);
+
+    if(result.rowCount > 0) {
+        res.send({
+            'urlId': urlId,
+            'url': result.rows[0],
+            'server': server, 
+        })
+    }else
+        res.sendStatus(404);
+    
 });
 
 app.post('/', async (req, res) => {
